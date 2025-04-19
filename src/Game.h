@@ -4,6 +4,7 @@
 #include "Constants.h"
 #include "Enemy.h"
 #include "GameStates.h"
+#include "Profiler.h"
 
 Grid grid;
 vector<Enemy> enemies;
@@ -105,7 +106,6 @@ Vector2 GetClickedCell() {
         Vector2 mousePos = GetMousePosition();
         int cellX = (int)(mousePos.x) / cellSize;
         int cellY = (int)(mousePos.y) / cellSize;
-        cout<<cellX<<", "<<cellY<<endl;
         return { (float)cellX, (float)cellY };
     }
 
@@ -156,11 +156,35 @@ void DrawGameStats()
     DrawText(result, screenWidth / 2 - 350, screenHeight - 50, 30,
         WHITE);
 }
+void ShowProfilerData()
+{
+    DrawText("Profiler Output (ms)", 10, 10, 20, BLACK);
+    const auto &results = Profiler::Get().GetResults();
+    int y = 40;
+    for (const auto &result : results)
+    {
+        DrawText(result.name.c_str(), 10, y, 20, BLACK);
+        DrawText(TextFormat("%.2fms", result.timeMs), 300, y, 20, BLACK);
+        y += 30;
+    }
+    const auto &resultConstants = Profiler::Get().GetResultsConstant();
+    for (const auto &result : resultConstants)
+    {
+        DrawText(result.name.c_str(), 10, y, 20, BLACK);
+        DrawText(TextFormat("%.2fms", result.timeMs), 300, y, 20, BLACK);
+        y += 30;
+    }
+}
 void GameHandler()
 {
+    Profiler::Get().BeginFrame();
     BeginDrawing();
         ClearBackground(BLACK);
-        CheckPlayerCollisionWithEnemies();
+        {
+            ProfilerScope scope("Collision");
+            CheckPlayerCollisionWithEnemies();
+        }
+        
         enemySpawnTimer += GetFrameTime();
         levelTimer += GetFrameTime();
         if(levelTimer >= levelPassTime)
@@ -169,23 +193,41 @@ void GameHandler()
             currentGameState = GameOver;
             return;
         }
-        if(enemySpawnTimer > 0.5f)
         {
-            SpawnNewEnemy();
-            enemySpawnTimer = 0;
-            enemySpawnDelay = GetRandomNumberInRange(7)/10;
-        }
-        grid.Draw();
-        for(Enemy& enemy : enemies )
-        {
-            enemy.Update();
-            if(enemy.CurrentDistanceToTarget() <= 1)
+            ProfilerScope scope("AI spawning");
+            if(enemySpawnTimer > 0.5f)
             {
-                SetEnemyNextTargetPosition(&enemy);
+                SpawnNewEnemy();
+                enemySpawnTimer = 0;
+                enemySpawnDelay = GetRandomNumberInRange(7)/10;
             }
-            enemy.Draw();
         }
-        DrawGameStats();
         
+        {
+            ProfilerScope scope("Behavior tree evaluation");
+            for(Enemy& enemy : enemies )
+            {
+                enemy.Update();
+                if(enemy.CurrentDistanceToTarget() <= 1)
+                {
+                    SetEnemyNextTargetPosition(&enemy);
+                }
+            }
+        }
+        {
+            ProfilerScope scope("Rendering");
+            grid.Draw();
+            DrawGameStats();
+            for (Enemy &enemy : enemies)
+            {
+                enemy.Draw();
+            }
+        }
+        
+        Profiler::Get().EndFrame();
+
+        ShowProfilerData();
         EndDrawing();
+        
+        
 }

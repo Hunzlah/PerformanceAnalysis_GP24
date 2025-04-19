@@ -1,0 +1,7 @@
+Load Textures: 4.2721 ms
+BFS: 0.2576 ms
+Unload Textures: 0.4561 ms
+Collision: 0.0005 ms
+AI spawning: 0 ms
+Behavior tree evaluation: 0.0084 ms
+Rendering: 0.0484 ms

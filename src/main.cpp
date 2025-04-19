@@ -4,17 +4,28 @@
 #include "MainMenu.h"
 #include "GameStates.h"
 #include "GameOver.h"
+#include "Profiler.h"
 int main() {
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
     InitWindow(screenWidth, screenHeight, "Defend the Spire");
     SearchAndSetResourceDir("resources");
-    LoadTextures();
+    //Profiler::Get().BeginFrame();
+    {
+        ProfilerScopeConstant scope("Load Textures");
+        LoadTextures();
+    }
+    //Profiler::Get().EndFrame();
+    currentGameState = Gameplay;
     InitializeLevelSettings();
-    InitializeGameSettings();
+    {
+        ProfilerScopeConstant scope("BFS");
+        InitializeGameSettings();
+    }
     SetTargetFPS(60);
     bool isManualExit = false;
     while (!WindowShouldClose())
     {
+        
         switch (currentGameState)
         {
         case MainMenu:
@@ -30,6 +41,7 @@ int main() {
         case Gameplay:
             GameHandler();
             break;
+
         case GameOver:
             GameOverHandler();
             break;
@@ -38,9 +50,18 @@ int main() {
             break;
         }
         if(isManualExit) break;
+        
+        
+        
     }
 
-    UnloadTextures();
+    {
+        ProfilerScopeConstant scope("Unload Textures");
+        UnloadTextures();
+    }
+
+    Profiler::Get().EndSession("ProfilerData");
+
     CloseWindow();
     return 0;
 }
